@@ -1,6 +1,11 @@
 package main
 
-import "github.com/gin-gonic/gin"
+import (
+	"fmt"
+	"strconv"
+
+	"github.com/gin-gonic/gin"
+)
 
 type Response struct {
 	Success bool   `json:"success"`
@@ -8,7 +13,7 @@ type Response struct {
 	Results any    `json:"results"`
 }
 type Users struct {
-	Id       int    `json:"id form:id"`
+	Id       int    `json:"id" form:"id"`
 	Email    string `json:"email" form:"email"`
 	Password string `json:"password" form:"password"`
 }
@@ -24,7 +29,7 @@ func main() {
 			Message: "backend is running well",
 		})
 	})
-
+// ================================================================================== Create User
 	r.POST("/users", func(ctx *gin.Context) {
 		var data Users
 
@@ -34,8 +39,8 @@ func main() {
 				Message: "Invalid request",
 			})
 		} else {
-			for _ , user := range listener{
-				if user.Email == data.Email{
+			for _, user := range listener {
+				if user.Email == data.Email {
 					ctx.JSON(400, Response{
 						Success: false,
 						Message: "email, is already exist",
@@ -55,7 +60,6 @@ func main() {
 		}
 
 	})
-
 	r.GET("/users", func(ctx *gin.Context) {
 		ctx.JSON(200, Response{
 			Success: true,
@@ -63,15 +67,34 @@ func main() {
 			Results: listener,
 		})
 	})
-	// r.GET("/users:id",func(ctx *gin.Context) {
-	// 	id := ctx.Param("id")
-	// 	if id == "5"{
-	// 		ctx.JSON(200, Response{
-	// 			Success: true,
+	
+// ================================================================================================ GET User
+	
+	r.GET("/users/:id", func(ctx *gin.Context) {
+		idParam := ctx.Param("id")
 
-	// 		})
-
-	// 	}
-	// })
+		id, err := strconv.Atoi(idParam)
+		if err != nil {
+			ctx.JSON(400, Response{
+				Success: false,
+				Message: "Invalid ID",
+			})
+			return
+		}
+		for _, user := range listener {
+			if user.Id == id {
+				ctx.JSON(200, Response{
+					Success: true,
+					Message: fmt.Sprintf("Wellcome %s", user.Email),
+					Results: user,
+				})
+				return
+			}
+		}
+		ctx.JSON(400, Response{
+		Success: false,
+		Message: "User not found",
+	})
+	})
 	r.Run("localhost:8888")
 }
