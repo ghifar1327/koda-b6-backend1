@@ -14,8 +14,8 @@ type Response struct {
 }
 type User struct {
 	Id       int    `json:"id" form:"id"`
-	Email    string `json:"email" form:"email"`
-	Password string `json:"password" form:"password"`
+	Email    string `json:"email" binding:"required,email"`
+	Password string `json:"password" binding:"required"`
 }
 
 var Users []User
@@ -39,7 +39,7 @@ func main() {
 		if err := ctx.ShouldBindJSON(&data); err != nil {
 			ctx.JSON(400, Response{
 				Success: false,
-				Message: "Invalid request",
+				Message: "Email and password must be filled in with the correct format",
 			})
 		} else {
 			for _, user := range Users {
@@ -73,7 +73,7 @@ func main() {
 		if err := ctx.ShouldBindJSON(&userInput); err != nil {
 			ctx.JSON(400, Response{
 				Success: false,
-				Message: "Invalid request",
+				Message: "Email and password must be filled in with the correct format",
 			})
 			return
 		}
