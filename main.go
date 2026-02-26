@@ -3,8 +3,8 @@ package main
 import (
 	"fmt"
 	"strconv"
-
 	"github.com/gin-gonic/gin"
+	"github.com/matthewhartstonge/argon2"
 )
 
 type Response struct {
@@ -12,126 +12,159 @@ type Response struct {
 	Message string `json:"message"`
 	Results any    `json:"results"`
 }
+
 type User struct {
-	Id       int    `json:"id" form:"id"`
+	Id       int
+	Email    string
+	Password string
+}
+
+// ============================================================================ REQUEST DTO
+type RegisterInput struct {
 	Email    string `json:"email" binding:"required,email"`
 	Password string `json:"password" binding:"required"`
 }
 
+type LoginInput struct {
+	Email    string `json:"email" binding:"required,email"`
+	Password string `json:"password" binding:"required"`
+}
+
+type UpdateInput struct {
+	Email    string `json:"email"`
+	Password string `json:"password"`
+}
+
+// ======================================================================= RESPONSE DTO
+type UserResponse struct {
+	Id    int    `json:"id"`
+	Email string `json:"email"`
+}
+
 var Users []User
-var currentID int = 0
+var currentID int
+var argon = argon2.DefaultConfig()
 
 func main() {
 	r := gin.Default()
 
+	// ================================= GET ALL USERS
 	r.GET("/users", func(ctx *gin.Context) {
+
+		var result []UserResponse
+		for _, user := range Users {
+			result = append(result, UserResponse{
+				Id:    user.Id,
+				Email: user.Email,
+			})
+		}
+
 		ctx.JSON(200, Response{
 			Success: true,
 			Message: "List of users",
-			Results: Users,
+			Results: result,
 		})
 	})
 
-	// ================================================================================== Register User
+	// ==================================================================================== REGISTER
 	r.POST("/register", func(ctx *gin.Context) {
-		var data User
 
-		if err := ctx.ShouldBindJSON(&data); err != nil {
+		var input RegisterInput
+
+		if err := ctx.ShouldBindJSON(&input); err != nil {
 			ctx.JSON(400, Response{
 				Success: false,
-				Message: "Email and password must be filled in with the correct format",
-			})
-		} else {
-			for _, user := range Users {
-				if user.Email == data.Email {
-					ctx.JSON(400, Response{
-						Success: false,
-						Message: "email, is already exist",
-					})
-					return
-				}
-			}
-			currentID++
-			data.Id = currentID
-			Users = append(Users, data)
-
-			ctx.JSON(201, Response{
-				Success: true,
-				Message: "Register successfully",
-				Results: data,
-			})
-		}
-
-	})
-
-	// ======================================================================================================= Login
-
-	r.POST("/login", func(ctx *gin.Context) {
-		var userInput User
-		var foundUser *User
-
-		if err := ctx.ShouldBindJSON(&userInput); err != nil {
-			ctx.JSON(400, Response{
-				Success: false,
-				Message: "Email and password must be filled in with the correct format",
+				Message: "Invalid email or password format",
 			})
 			return
 		}
 
-		for _, data := range Users {
-			if data.Email == userInput.Email && data.Password == userInput.Password {
-				foundUser = &data
-				break
-			}
-		}
-
-		if foundUser == nil {
-			ctx.JSON(401, Response{
-				Success: false,
-				Message: "Email or password is incorrect",
-			})
-			return
-		}
-
-		ctx.JSON(200, Response{
-			Success: true,
-			Message: "Login successfully",
-			Results: foundUser,
-		})
-	})
-
-	// ================================================================================================ GET User
-	r.POST("/users/", func(ctx *gin.Context) {
-		idParam := ctx.Param("id")
-
-		id, err := strconv.Atoi(idParam)
-		if err != nil {
-			ctx.JSON(400, Response{
-				Success: false,
-				Message: "Invalid ID",
-			})
-			return
-		}
 		for _, user := range Users {
-			if user.Id == id {
-				ctx.JSON(200, Response{
-					Success: true,
-					Message: fmt.Sprintf("Wellcome %s", user.Email),
-					Results: user,
+			if user.Email == input.Email {
+				ctx.JSON(400, Response{
+					Success: false,
+					Message: "Email already exists",
 				})
 				return
 			}
 		}
-		ctx.JSON(400, Response{
-			Success: false,
-			Message: "User not found",
+
+		hash, err := argon.HashEncoded([]byte(input.Password))
+		if err != nil {
+			ctx.JSON(500, Response{
+				Success: false,
+				Message: "Failed to hash password",
+			})
+			return
+		}
+
+		currentID++
+
+		newUser := User{
+			Id:       currentID,
+			Email:    input.Email,
+			Password: string(hash),
+		}
+
+		Users = append(Users, newUser)
+
+		ctx.JSON(201, Response{
+			Success: true,
+			Message: "Register successfully",
+			Results: UserResponse{
+				Id:    newUser.Id,
+				Email: newUser.Email,
+			},
 		})
 	})
-	// ======================================================================================== Update User
 
-	r.PATCH("/users/:id", func(ctx *gin.Context) {
-		idParam := ctx.Param("id")
-		id, err := strconv.Atoi(idParam)
+	// ============================================================================================= LOGIN
+r.POST("/login", func(ctx *gin.Context) {
+
+	var input LoginInput
+	var foundUser *User
+
+	if err := ctx.ShouldBindJSON(&input); err != nil {
+		ctx.JSON(400, Response{
+			Success: false,
+			Message: "Invalid email or password format",
+		})
+		return
+	}
+
+	for i, user := range Users {
+		if user.Email == input.Email {
+
+			match, err := argon2.VerifyEncoded([]byte(input.Password), []byte(user.Password))
+			if err == nil && match {
+				foundUser = &Users[i]
+				break
+			}
+		}
+	}
+
+	if foundUser == nil {
+		ctx.JSON(401, Response{
+			Success: false,
+			Message: "Email or password incorrect",
+		})
+		return
+	}
+
+	ctx.JSON(200, Response{
+		Success: true,
+		Message: "Login successfully",
+		Results: UserResponse{
+			Id:    foundUser.Id,
+			Email: foundUser.Email,
+		},
+	})
+})
+
+	// ==================================================================================== GET USER
+	r.GET("/users/:id", func(ctx *gin.Context) {
+
+		id, err := strconv.Atoi(ctx.Param("id"))
 		if err != nil {
 			ctx.JSON(400, Response{
 				Success: false,
@@ -139,38 +172,16 @@ func main() {
 			})
 			return
 		}
-		var updateUser User
-		if err := ctx.ShouldBindJSON(&updateUser); err != nil {
-			ctx.JSON(400, Response{
-				Success: false,
-				Message: "Invalid request",
-			})
-		}
 
-		for i, user := range Users {
+		for _, user := range Users {
 			if user.Id == id {
-				// -----------------------------------------------------------------------------------------------------
-				if updateUser.Email != "" && updateUser.Email != user.Email {
-					for _, u := range Users {
-						if u.Email == updateUser.Email {
-							ctx.JSON(400, Response{
-								Success: false,
-								Message: "Email already exists",
-							})
-							return
-						}
-					}
-					Users[i].Email = updateUser.Email
-				}
-				// ---------------------------------------------------------------------------------------------------------
-				if updateUser.Password != "" {
-					Users[i].Password = updateUser.Password
-				}
-
 				ctx.JSON(200, Response{
 					Success: true,
-					Message: "User updated successfully",
-					Results: Users[i],
+					Message: fmt.Sprintf("Welcome %s", user.Email),
+					Results: UserResponse{
+						Id:    user.Id,
+						Email: user.Email,
+					},
 				})
 				return
 			}
@@ -182,11 +193,10 @@ func main() {
 		})
 	})
 
-	// ================================================================================================================================== delete user
+	// ================================= UPDATE USER
+	r.PATCH("/users/:id", func(ctx *gin.Context) {
 
-	r.DELETE("user/:id", func(ctx *gin.Context) {
-		idParam := ctx.Param("id")
-		id, err := strconv.Atoi(idParam)
+		id, err := strconv.Atoi(ctx.Param("id"))
 		if err != nil {
 			ctx.JSON(400, Response{
 				Success: false,
@@ -194,15 +204,76 @@ func main() {
 			})
 			return
 		}
-		var newData []User
-		var found bool = false
+
+		var input UpdateInput
+		if err := ctx.ShouldBindJSON(&input); err != nil {
+			ctx.JSON(400, Response{
+				Success: false,
+				Message: "Invalid request",
+			})
+			return
+		}
+
+		for i, user := range Users {
+			if user.Id == id {
+
+				if input.Email != "" {
+					Users[i].Email = input.Email
+				}
+
+				if input.Password != "" {
+					hash, err := argon.HashEncoded([]byte(input.Password))
+					if err != nil {
+						ctx.JSON(500, Response{
+							Success: false,
+							Message: "Failed to hash password",
+						})
+						return
+					}
+					Users[i].Password = string(hash)
+				}
+
+				ctx.JSON(200, Response{
+					Success: true,
+					Message: "User updated successfully",
+					Results: UserResponse{
+						Id:    Users[i].Id,
+						Email: Users[i].Email,
+					},
+				})
+				return
+			}
+		}
+
+		ctx.JSON(404, Response{
+			Success: false,
+			Message: "User not found",
+		})
+	})
+
+	// ============================================================================= DELETE
+	r.DELETE("/users/:id", func(ctx *gin.Context) {
+
+		id, err := strconv.Atoi(ctx.Param("id"))
+		if err != nil {
+			ctx.JSON(400, Response{
+				Success: false,
+				Message: "Invalid ID",
+			})
+			return
+		}
+
+		var newUsers []User
+		found := false
+
 		for _, user := range Users {
 			if user.Id == id {
 				found = true
 				continue
 			}
-			newData = append(newData, user)
+			newUsers = append(newUsers, user)
 		}
+
 		if !found {
 			ctx.JSON(404, Response{
 				Success: false,
@@ -210,13 +281,13 @@ func main() {
 			})
 			return
 		}
-		Users = newData
+
+		Users = newUsers
 
 		ctx.JSON(200, Response{
 			Success: true,
 			Message: "User deleted successfully",
 		})
-
 	})
 
 	r.Run("localhost:8888")
