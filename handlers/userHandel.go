@@ -1,8 +1,8 @@
 package handlers
 
 import (
-	"demo/models"
-	"demo/utils"
+	"backend/models"
+	"backend/utils"
 	"fmt"
 	"strconv"
 
