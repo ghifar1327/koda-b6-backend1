@@ -31,6 +31,7 @@ type Product struct {
 
 type CartItem struct {
 	Id        int `json:"id"`
+	UserID    int `json:"user_id"`
 	ProductID int `json:"product_id"`
 	VariantID int `json:"variant_id"`
 	SizeID    int `json:"size_id"`
@@ -39,15 +40,23 @@ type CartItem struct {
 	Price     int `json:"price"`
 }
 
+type OrderItem struct {
+	Id        int
+	OrderID   int
+	ProductID int
+	Qty       int
+	Price     int
+}
+
 type Order struct {
-	Id            int        `json:"id"`
-	UserID        int        `json:"user_id"`
-	Total         int        `json:"total"`
-	Status        string     `json:"status"`
-	Address       string     `json:"address"`
-	PaymentMethod string     `json:"payment_method"`
-	CreatedAt     time.Time  `json:"created_at"`
-	Items         []CartItem `json:"items"`
+	Id            int         `json:"id"`
+	UserID        int         `json:"user_id"`
+	Total         int         `json:"total"`
+	Status        string      `json:"status"`
+	Address       string      `json:"address"`
+	PaymentMethod string      `json:"payment_method"`
+	CreatedAt     time.Time   `json:"created_at"`
+	Items         []OrderItem `json:"items"`
 }
 
 // ===================================================================== methode
