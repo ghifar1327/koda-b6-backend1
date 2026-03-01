@@ -12,8 +12,8 @@ func main() {
 	r.POST("/register", handlers.Register)
 	r.POST("/login", handlers.Login)
 	r.GET("/users/:id", handlers.GetUserByID)
-	r.PATCH("/upadteuser/:id", handlers.UpdateUser)
+	r.PATCH("/updateuser/:id", handlers.UpdateUser)
 	r.DELETE("/deleteuser/:id", handlers.DeleteUser)
-
+	r.GET("/products" , handlers.GetProducts)
 	r.Run("localhost:8888")
 }
