@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"backend/models"
+	"time"
 
 	"github.com/gin-gonic/gin"
 )
@@ -16,6 +17,7 @@ type ProductResponse struct {
 	Methods   []string `json:"methods"`
 }
 
+var Orders []models.Order
 var Cart []models.CartItem
 
 func GetProducts(ctx *gin.Context) {
@@ -41,7 +43,7 @@ func GetProducts(ctx *gin.Context) {
 func AddChart(ctx *gin.Context) {
 	defer mu.Unlock()
 	mu.Lock()
-	
+
 	var input models.CartItem
 	if err := ctx.ShouldBindJSON(&input); err != nil {
 		ctx.JSON(404, gin.H{"error": "invalid request body"})
@@ -59,8 +61,12 @@ func AddChart(ctx *gin.Context) {
 
 	if product == nil {
 		ctx.JSON(404, gin.H{"error": "Product not found"})
+		return
 	}
-
+	if input.Qty > product.Stock {
+		ctx.JSON(400, gin.H{"error": "insufficient stock"})
+		return
+	}
 	// =========================================================== add price
 	var variantPrice, sizePrice, methodPrice int
 
@@ -88,4 +94,77 @@ func AddChart(ctx *gin.Context) {
 
 	Cart = append(Cart, input)
 	ctx.JSON(200, Response{true, "Product added successfuly", Cart})
+}
+
+func Checkout(ctx *gin.Context) {
+	defer mu.Unlock()
+	mu.Lock()
+	var input struct {
+		UserId   int    `json:"user_id"`
+		Address  string `json:"address"`
+		Delivery int    `json:"delivery"`
+	}
+	if err := ctx.ShouldBindJSON(&input); err != nil {
+		ctx.JSON(404, gin.H{"error": "invalid request body"})
+		return
+	}
+
+	var UserCart []models.CartItem
+	var ReminingCart []models.CartItem
+
+	for _, item := range Cart {
+		if item.Id == input.UserId {
+			UserCart = append(UserCart, item)
+		} else {
+			ReminingCart = append(ReminingCart, item)
+		}
+	}
+
+	if len(UserCart) == 0 {
+		ctx.JSON(400, gin.H{"error": "Cart is empty"})
+		return
+	}
+
+	var total int
+	var orderItem []models.OrderItem
+	for _, item := range UserCart {
+
+		var product *models.Product
+		for i := range models.Products {
+			if models.Products[i].Id == item.Id {
+				product = &models.Products[i]
+				break
+			}
+		}
+		if product == nil {
+			ctx.JSON(400, gin.H{"error": "Product not found"})
+			return
+		}
+		if product.Stock < item.Qty {
+			ctx.JSON(400, gin.H{"error": "insufficient stock"})
+			return
+		}
+
+		product.Stock -= item.Qty
+		total += item.Price
+		orderItem = append(orderItem, models.OrderItem{
+			Id:      item.Id,
+			OrderID: item.ProductID,
+			Qty:     item.Qty,
+			Price:   item.Price,
+		})
+
+	}
+	order := models.Order{
+		Id:        len(Orders) + 1,
+		UserID:    input.UserId,
+		Total:     total,
+		Status:    "PAID",
+		Address:   input.Address,
+		CreatedAt: time.Now(),
+		Items:     orderItem,
+	}
+	Orders = append(Orders, order)
+	Cart = ReminingCart
+	ctx.JSON(200, Response{true, "Checkout success", order})
 }
