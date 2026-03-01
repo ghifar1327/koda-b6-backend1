@@ -15,8 +15,9 @@ func main() {
 	r.PATCH("/updateuser/:id", handlers.UpdateUser)
 	r.DELETE("/deleteuser/:id", handlers.DeleteUser)
 
-	// ================================================================ product
+	// ================================================================ product order
 	r.GET("/products", handlers.GetProducts)
 	r.POST("/addcart", handlers.AddChart)
+	r.POST("/checkout", handlers.Checkout)
 	r.Run("localhost:8888")
 }
