@@ -99,11 +99,7 @@ func AddChart(ctx *gin.Context) {
 func Checkout(ctx *gin.Context) {
 	defer mu.Unlock()
 	mu.Lock()
-	var input struct {
-		UserId   int    `json:"user_id"`
-		Address  string `json:"address"`
-		Delivery int    `json:"delivery"`
-	}
+	var input models.CheckoutInput
 	if err := ctx.ShouldBindJSON(&input); err != nil {
 		ctx.JSON(404, gin.H{"error": "invalid request body"})
 		return
@@ -111,9 +107,9 @@ func Checkout(ctx *gin.Context) {
 
 	var UserCart []models.CartItem
 	var ReminingCart []models.CartItem
-
+	// mencari cart user
 	for _, item := range Cart {
-		if item.Id == input.UserId {
+		if item.UserID == input.UserId {
 			UserCart = append(UserCart, item)
 		} else {
 			ReminingCart = append(ReminingCart, item)
@@ -127,11 +123,12 @@ func Checkout(ctx *gin.Context) {
 
 	var total int
 	var orderItem []models.OrderItem
+	
+	// mengupdate product untuk mengurangi quantity ketika dicheckout dan menbahkannya ke oerder item user
 	for _, item := range UserCart {
-
 		var product *models.Product
 		for i := range models.Products {
-			if models.Products[i].Id == item.Id {
+			if models.Products[i].Id == item.ProductID {
 				product = &models.Products[i]
 				break
 			}
@@ -144,12 +141,12 @@ func Checkout(ctx *gin.Context) {
 			ctx.JSON(400, gin.H{"error": "insufficient stock"})
 			return
 		}
-
+		
 		product.Stock -= item.Qty
 		total += item.Price
 		orderItem = append(orderItem, models.OrderItem{
-			Id:      item.Id,
-			OrderID: item.ProductID,
+			Id:      len(orderItem) + 1,
+			ProductID: item.ProductID,
 			Qty:     item.Qty,
 			Price:   item.Price,
 		})
