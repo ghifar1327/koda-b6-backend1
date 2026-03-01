@@ -58,3 +58,49 @@ type Order struct {
 	CreatedAt     time.Time   `json:"created_at"`
 	Items         []OrderItem `json:"items"`
 }
+
+// ===================================================================== methode
+
+func (s Size) Render(ids []int) []string {
+	var result []string
+
+	for _, id := range ids {
+		for _, size := range Sizes {
+			if size.Id == id {
+				result = append(result, size.Name)
+				break
+			}
+		}
+	}
+
+	return result
+}
+
+func (v Variant) Render(idv []int) []string {
+	var result []string
+	for _, id := range idv {
+		for _, variant := range Variants {
+			if variant.Id == id {
+				result = append(result, variant.Name)
+				break
+			}
+		}
+	}
+	return result
+}
+
+func (m Method) Render(idm []int) []string{
+	var result []string
+	for _, id := range idm{
+		for _, method := range Methods{
+			if  method.Id == id {
+				result = append(result, method.Name)
+			}
+		}
+	}
+	return result
+}
+
+type Renders interface{
+	Render() []string
+}
