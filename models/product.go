@@ -42,7 +42,6 @@ type CartItem struct {
 
 type OrderItem struct {
 	Id        int
-	OrderID   int
 	ProductID int
 	Qty       int
 	Price     int
@@ -57,6 +56,13 @@ type Order struct {
 	PaymentMethod string      `json:"payment_method"`
 	CreatedAt     time.Time   `json:"created_at"`
 	Items         []OrderItem `json:"items"`
+}
+
+// ===================================================================== requests
+type CheckoutInput struct {
+	UserId   int    `json:"user_id"`
+	Address  string `json:"address"`
+	Delivery int    `json:"delivery"`
 }
 
 // ===================================================================== methode
