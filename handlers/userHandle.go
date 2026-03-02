@@ -3,15 +3,21 @@ package handlers
 import (
 	"backend/models"
 	"backend/utils"
-	"strconv"
+	"context"
+	"fmt"
+	"os"
 	"sync"
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 var Users []models.User
-var currentID int
+
+// var currentID int
 var mu sync.Mutex
 
 type Response struct {
@@ -20,29 +26,44 @@ type Response struct {
 	Results any    `json:"results"`
 }
 
+func textToPtr(t pgtype.Text) *string {
+	if t.Valid {
+		return &t.String
+	}
+	return nil
+}
+
 // =============================================================================================================== GET ALL USERS
 func GetUsers(ctx *gin.Context) {
 
-	defer mu.Unlock()
-	mu.Lock()
+	dbURL := os.Getenv("DATABASE_URL")
+	fmt.Println("DATABASE_URL:", dbURL)
 
-	var result []models.User
+	conn, err := pgx.Connect(context.Background(), dbURL)
+	if err != nil {
+		fmt.Println("CONNECT ERROR:", err)
+		ctx.JSON(500, Response{false, "Failed to connect database", nil})
+		return
+	}
+	defer conn.Close(context.Background())
 
-	for _, user := range Users {
-		result = append(result, models.User{
-			Id:        user.Id,
-			Picture:   user.Picture,
-			FullName:  user.FullName,
-			Email:     user.Email,
-			Role:      user.Role,
-			Address:   user.Address,
-			Phone:     user.Phone,
-			UpdatedAt: user.UpdatedAt,
-			CreatedAt: user.CreatedAt,
-		})
+	rows, err := conn.Query(context.Background(),
+		`SELECT id, full_name, picture, email,password ,role_id ,phone, address, created_at, updated_at FROM users`)
+	if err != nil {
+		fmt.Println("QUERY ERROR:", err)
+		ctx.JSON(500, Response{false, "Failed to query users", nil})
+		return
+	}
+	defer rows.Close()
+
+	users, err := pgx.CollectRows(rows, pgx.RowToStructByName[models.User])
+	if err != nil {
+		fmt.Println("COLLECT ERROR:", err)
+		ctx.JSON(500, Response{false, "Failed to collect users", nil})
+		return
 	}
 
-	ctx.JSON(200, Response{true, "List of users", result})
+	ctx.JSON(200, Response{true, "List of users", users})
 }
 
 // ============================================================================================================== REGISTER
@@ -66,18 +87,18 @@ func Register(ctx *gin.Context) {
 
 	hash, err := utils.HashPassword(input.Password)
 	if err != nil {
-		ctx.JSON(500, Response{false, "Failed to hash password", nil})
+		ctx.JSON(400, Response{false, "Failed to hash password", nil})
 		return
 	}
 
-	currentID++
+	// currentID++
 
 	newUser := models.User{
-		Id:        currentID,
+		Id:        uuid.New(),
 		Email:     input.Email,
 		Password:  hash,
 		FullName:  input.FullName,
-		Role:      "user",
+		RoleId:    2,
 		Address:   input.Address,
 		Phone:     input.Phone,
 		CreatedAt: time.Now(),
@@ -91,10 +112,10 @@ func Register(ctx *gin.Context) {
 		"Register successfully",
 		models.UserResponse{
 			Id:       newUser.Id,
-			Picture:  newUser.Picture,
+			Picture:  *textToPtr(newUser.Picture),
 			FullName: newUser.FullName,
 			Email:    newUser.Email,
-			Role:     newUser.Role,
+			RoleId:   newUser.RoleId,
 			Address:  newUser.Address,
 			Phone:    newUser.Phone,
 		},
@@ -118,7 +139,7 @@ func Login(ctx *gin.Context) {
 
 			match, err := utils.VerifyPassword(input.Password, user.Password)
 			if err != nil {
-				ctx.JSON(500, Response{false, "Failed to verify password", nil})
+				ctx.JSON(400, Response{false, "Failed to verify password", nil})
 				return
 			}
 
@@ -128,10 +149,10 @@ func Login(ctx *gin.Context) {
 					"Login successfully",
 					models.UserResponse{
 						Id:       user.Id,
-						Picture:  user.Picture,
+						Picture:  *textToPtr(user.Picture),
 						FullName: user.FullName,
 						Email:    user.Email,
-						Role:     user.Role,
+						RoleId:   user.RoleId,
 						Address:  user.Address,
 						Phone:    user.Phone,
 					},
@@ -150,7 +171,7 @@ func GetUserByID(ctx *gin.Context) {
 	defer mu.Unlock()
 	mu.Lock()
 
-	id, err := strconv.Atoi(ctx.Param("id"))
+	id, err := uuid.Parse(ctx.Param("id"))
 	if err != nil {
 		ctx.JSON(400, Response{false, "Invalid ID", nil})
 		return
@@ -162,10 +183,10 @@ func GetUserByID(ctx *gin.Context) {
 				"User found",
 				models.UserResponse{
 					Id:       user.Id,
-					Picture:  user.Picture,
+					Picture:  *textToPtr(user.Picture),
 					FullName: user.FullName,
 					Email:    user.Email,
-					Role:     user.Role,
+					RoleId:   user.RoleId,
 				},
 			})
 			return
@@ -181,7 +202,7 @@ func UpdateUser(ctx *gin.Context) {
 	defer mu.Unlock()
 	mu.Lock()
 
-	id, err := strconv.Atoi(ctx.Param("id"))
+	id, err := uuid.Parse(ctx.Param("id"))
 	if err != nil {
 		ctx.JSON(400, Response{false, "Invalid ID", nil})
 		return
@@ -216,7 +237,10 @@ func UpdateUser(ctx *gin.Context) {
 			}
 
 			if input.Picture != nil {
-				Users[i].Picture = *input.Picture
+				Users[i].Picture = pgtype.Text{
+					String: *input.Picture,
+					Valid:  true,
+				}
 			}
 
 			if input.FullName != nil {
@@ -231,8 +255,8 @@ func UpdateUser(ctx *gin.Context) {
 				Users[i].Phone = *input.Phone
 			}
 
-			if input.Role != nil {
-				Users[i].Role = *input.Role
+			if input.RoleId != nil {
+				Users[i].RoleId = *input.RoleId
 			}
 
 			Users[i].UpdatedAt = time.Now()
@@ -242,10 +266,10 @@ func UpdateUser(ctx *gin.Context) {
 				"User updated successfully",
 				models.UserResponse{
 					Id:       Users[i].Id,
-					Picture:  Users[i].Picture,
+					Picture:  *textToPtr(Users[i].Picture),
 					FullName: Users[i].FullName,
 					Email:    Users[i].Email,
-					Role:     Users[i].Role,
+					RoleId:   Users[i].RoleId,
 					Address:  Users[i].Address,
 					Phone:    Users[i].Phone,
 				},
@@ -262,8 +286,7 @@ func DeleteUser(ctx *gin.Context) {
 
 	defer mu.Unlock()
 	mu.Lock()
-
-	id, err := strconv.Atoi(ctx.Param("id"))
+	id, err := uuid.Parse(ctx.Param("id"))
 	if err != nil {
 		ctx.JSON(400, Response{false, "Invalid ID", nil})
 		return
