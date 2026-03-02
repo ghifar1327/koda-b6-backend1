@@ -1,28 +1,33 @@
 package models
 
-import "time"
+import (
+	"time"
+
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
+)
 
 type User struct {
-	Id        int       `json:"id"`
-	Picture   string    `json:"picture"`
-	FullName  string    `json:"full_name"`
-	Email     string    `json:"email"`
-	Password  string    `json:"-"`
-	Address   string    `json:"address"`
-	Phone     string    `json:"phone"`
-	Role      string    `json:"role"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
+	Id        uuid.UUID   `json:"id"`
+	Picture   pgtype.Text `json:"picture"`
+	FullName  string      `json:"full_name"`
+	Email     string      `json:"email"`
+	Password  string      `json:"password"`
+	Address   string      `json:"address"`
+	Phone     string      `json:"phone"`
+	RoleId    int         `json:"role_id"`
+	CreatedAt time.Time   `json:"created_at"`
+	UpdatedAt time.Time   `json:"updated_at"`
 }
 
 // ========================================================================= REQUEST
 
 type RegisterInput struct {
-    Email    string `json:"email" binding:"required,email"`
-    Password string `json:"password" binding:"required"`
-    FullName string `json:"full_name"`
-    Address  string `json:"address"`
-    Phone    string `json:"phone"`
+	Email    string `json:"email" binding:"required,email"`
+	Password string `json:"password" binding:"required"`
+	FullName string `json:"full_name"`
+	Address  string `json:"address"`
+	Phone    string `json:"phone"`
 }
 
 type LoginInput struct {
@@ -36,18 +41,20 @@ type UpdateInput struct {
 	FullName *string `json:"full_name"`
 	Password *string `json:"password"`
 	Address  *string `json:"address"`
-	Role     *string `json:"role"`
+	RoleId   *int    `json:"role_id"`
 	Phone    *string `json:"phone"`
 }
 
 // ============================================================================= RESPONSE
 
+// Picture pgtype.Text
+
 type UserResponse struct {
-	Id       int    `json:"id"`
-	Picture  string `json:"picture"`
-	FullName string `json:"full_name"`
-	Email    string `json:"email"`
-	Role     string `json:"role"`
-	Address  string `json:"address"`
-	Phone    string `json:"phone"`
+	Id       uuid.UUID `json:"id"`
+	Picture  string    `json:"picture"`
+	FullName string    `json:"full_name"`
+	Email    string    `json:"email"`
+	RoleId   int       `json:"role_id"`
+	Address  string    `json:"address"`
+	Phone    string    `json:"phone"`
 }
