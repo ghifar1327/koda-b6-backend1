@@ -34,6 +34,15 @@ func textToPtr(t pgtype.Text) *string {
 }
 
 // =============================================================================================================== GET ALL USERS
+
+
+// GetUsers godoc
+// @Summary Get all users
+// @Description Get list of users from database
+// @Tags users
+// @Produce json
+// @Success 200 {object} Response
+// @Router /users [get]
 func GetUsers(ctx *gin.Context) {
 
 	dbURL := os.Getenv("DATABASE_URL")
@@ -67,6 +76,16 @@ func GetUsers(ctx *gin.Context) {
 }
 
 // ============================================================================================================== REGISTER
+
+// Register godoc
+// @Summary Register new user
+// @Description Create new user account
+// @Tags users
+// @Accept json
+// @Produce json
+// @Param input body models.RegisterInput true "Register Data"
+// @Success 201 {object} Response
+// @Router /register [post]
 func Register(ctx *gin.Context) {
 	var input models.RegisterInput
 
@@ -123,6 +142,16 @@ func Register(ctx *gin.Context) {
 }
 
 // ================================================================================================================ LOGIN
+
+// Login godoc
+// @Summary Login user
+// @Description Login with email and password
+// @Tags auth
+// @Accept json
+// @Produce json
+// @Param input body models.LoginInput true "Login Data"
+// @Success 200 {object} Response
+// @Router /login [post]
 func Login(ctx *gin.Context) {
 	var input models.LoginInput
 
@@ -166,37 +195,69 @@ func Login(ctx *gin.Context) {
 }
 
 // ======================================================================================================= GET USER BY ID
+
+
+// GetUserByID godoc
+// @Summary Get user by ID
+// @Description Get single user by UUID
+// @Tags users
+// @Produce json
+// @Param id path string true "User ID"
+// @Success 200 {object} Response
+// @Router /users/{id} [get]
 func GetUserByID(ctx *gin.Context) {
 
-	defer mu.Unlock()
-	mu.Lock()
-
-	id, err := uuid.Parse(ctx.Param("id"))
+	dbURL := os.Getenv("DATABASE_URL")
+	conn, err := pgx.Connect(context.Background(), dbURL)
 	if err != nil {
-		ctx.JSON(400, Response{false, "Invalid ID", nil})
+		ctx.JSON(500, Response{false, "DB connection error", nil})
 		return
 	}
-	for _, user := range Users {
-		if user.Id == id {
-			ctx.JSON(200, Response{
-				true,
-				"User found",
-				models.UserResponse{
-					Id:       user.Id,
-					Picture:  *textToPtr(user.Picture),
-					FullName: user.FullName,
-					Email:    user.Email,
-					RoleId:   user.RoleId,
-				},
-			})
-			return
-		}
+	defer conn.Close(context.Background())
+
+	idParam := ctx.Param("id")
+	id, err := uuid.Parse(idParam)
+	if err != nil {
+		ctx.JSON(400, Response{false, "Invalid UUID", nil})
+		return
 	}
 
-	ctx.JSON(404, Response{false, "User not found", nil})
+	row := conn.QueryRow(context.Background(),
+		`SELECT id, full_name, picture, email, role_id, phone, address, created_at, updated_at
+		 FROM users WHERE id=$1`, id)
+
+	var user models.User
+	err = row.Scan(
+		&user.Id,
+		&user.FullName,
+		&user.Picture,
+		&user.Email,
+		&user.RoleId,
+		&user.Phone,
+		&user.Address,
+		&user.CreatedAt,
+		&user.UpdatedAt,
+	)
+
+	if err != nil {
+		ctx.JSON(404, Response{false, "User not found", nil})
+		return
+	}
+
+	ctx.JSON(200, Response{true, "User found", user})
 }
 
 // ============================================================================================================= UPDATE USER
+// UpdateUser godoc
+// @Summary Update user
+// @Description Update user by UUID
+// @Tags users
+// @Accept json
+// @Produce json
+// @Param id path string true "User ID"
+// @Param input body models.UpdateInput true "Update Data"
+// @Success 200 {object} Response
+// @Router /updateuser/{id} [patch]
 func UpdateUser(ctx *gin.Context) {
 
 	defer mu.Unlock()
@@ -282,6 +343,15 @@ func UpdateUser(ctx *gin.Context) {
 }
 
 // ======================================================================================================= DELETE USER
+
+// DeleteUser godoc
+// @Summary Delete user
+// @Description Delete user by UUID
+// @Tags users
+// @Produce json
+// @Param id path string true "User ID"
+// @Success 200 {object} Response
+// @Router /deleteuser/{id} [delete]
 func DeleteUser(ctx *gin.Context) {
 
 	defer mu.Unlock()
