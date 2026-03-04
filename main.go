@@ -6,8 +6,16 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
+	swaggerFiles "github.com/swaggo/files"
+	ginSwagger "github.com/swaggo/gin-swagger"
+	docs "backend/docs"
 )
 
+// @title           backend app
+// @version         1.0.0
+// @description     belajar swagger.
+// @host      		localhost:8888
+// @BasePath  		/
 func main() {
 	godotenv.Load()
 	r := gin.Default()
@@ -23,5 +31,12 @@ func main() {
 	r.GET("/products", handlers.GetProducts)
 	r.POST("/addcart", handlers.AddChart)
 	r.POST("/checkout", handlers.Checkout)
+
+	docs.SwaggerInfo.BasePath = "/"
+
+	docsPath := r.Group("/docs")
+	{
+		docsPath.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
+	}
 	r.Run("localhost:8888")
 }
