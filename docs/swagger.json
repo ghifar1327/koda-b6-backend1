@@ -6,12 +6,12 @@
         "contact": {},
         "version": "1.0.0"
     },
-    "host": "localhost:8888",
+    "host": "localhost:8080",
     "basePath": "/",
     "paths": {
         "/deleteuser/{id}": {
             "delete": {
-                "description": "Delete user by UUID",
+                "description": "Delete user by UUID (in-memory)",
                 "produces": [
                     "application/json"
                 ],
@@ -40,7 +40,7 @@
         },
         "/login": {
             "post": {
-                "description": "Login with email and password",
+                "description": "Login using email and password",
                 "consumes": [
                     "application/json"
                 ],
@@ -74,7 +74,7 @@
         },
         "/register": {
             "post": {
-                "description": "Create new user account",
+                "description": "Create new user (in-memory)",
                 "consumes": [
                     "application/json"
                 ],
@@ -82,7 +82,7 @@
                     "application/json"
                 ],
                 "tags": [
-                    "users"
+                    "auth"
                 ],
                 "summary": "Register new user",
                 "parameters": [
@@ -108,7 +108,7 @@
         },
         "/updateuser/{id}": {
             "patch": {
-                "description": "Update user by UUID",
+                "description": "Update user by UUID (in-memory)",
                 "consumes": [
                     "application/json"
                 ],
@@ -149,7 +149,7 @@
         },
         "/users": {
             "get": {
-                "description": "Get list of users from database",
+                "description": "Get list of users (in-memory)",
                 "produces": [
                     "application/json"
                 ],
@@ -169,7 +169,7 @@
         },
         "/users/{id}": {
             "get": {
-                "description": "Get single user by UUID",
+                "description": "Get single user by UUID (in-memory)",
                 "produces": [
                     "application/json"
                 ],
@@ -265,9 +265,6 @@
                     "type": "string"
                 },
                 "phone": {
-                    "type": "string"
-                },
-                "picture": {
                     "type": "string"
                 },
                 "role_id": {

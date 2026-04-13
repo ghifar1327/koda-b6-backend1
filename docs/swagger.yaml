@@ -46,12 +46,10 @@ definitions:
         type: string
       phone:
         type: string
-      picture:
-        type: string
       role_id:
         type: integer
     type: object
-host: localhost:8888
+host: localhost:8080
 info:
   contact: {}
   description: belajar swagger.
@@ -60,7 +58,7 @@ info:
 paths:
   /deleteuser/{id}:
     delete:
-      description: Delete user by UUID
+      description: Delete user by UUID (in-memory)
       parameters:
       - description: User ID
         in: path
@@ -81,7 +79,7 @@ paths:
     post:
       consumes:
       - application/json
-      description: Login with email and password
+      description: Login using email and password
       parameters:
       - description: Login Data
         in: body
@@ -103,7 +101,7 @@ paths:
     post:
       consumes:
       - application/json
-      description: Create new user account
+      description: Create new user (in-memory)
       parameters:
       - description: Register Data
         in: body
@@ -120,12 +118,12 @@ paths:
             $ref: '#/definitions/handlers.Response'
       summary: Register new user
       tags:
-      - users
+      - auth
   /updateuser/{id}:
     patch:
       consumes:
       - application/json
-      description: Update user by UUID
+      description: Update user by UUID (in-memory)
       parameters:
       - description: User ID
         in: path
@@ -150,7 +148,7 @@ paths:
       - users
   /users:
     get:
-      description: Get list of users from database
+      description: Get list of users (in-memory)
       produces:
       - application/json
       responses:
@@ -163,7 +161,7 @@ paths:
       - users
   /users/{id}:
     get:
-      description: Get single user by UUID
+      description: Get single user by UUID (in-memory)
       parameters:
       - description: User ID
         in: path

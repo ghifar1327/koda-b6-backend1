@@ -17,7 +17,7 @@ const docTemplate = `{
     "paths": {
         "/deleteuser/{id}": {
             "delete": {
-                "description": "Delete user by UUID",
+                "description": "Delete user by UUID (in-memory)",
                 "produces": [
                     "application/json"
                 ],
@@ -46,7 +46,7 @@ const docTemplate = `{
         },
         "/login": {
             "post": {
-                "description": "Login with email and password",
+                "description": "Login using email and password",
                 "consumes": [
                     "application/json"
                 ],
@@ -80,7 +80,7 @@ const docTemplate = `{
         },
         "/register": {
             "post": {
-                "description": "Create new user account",
+                "description": "Create new user (in-memory)",
                 "consumes": [
                     "application/json"
                 ],
@@ -88,7 +88,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "users"
+                    "auth"
                 ],
                 "summary": "Register new user",
                 "parameters": [
@@ -114,7 +114,7 @@ const docTemplate = `{
         },
         "/updateuser/{id}": {
             "patch": {
-                "description": "Update user by UUID",
+                "description": "Update user by UUID (in-memory)",
                 "consumes": [
                     "application/json"
                 ],
@@ -155,7 +155,7 @@ const docTemplate = `{
         },
         "/users": {
             "get": {
-                "description": "Get list of users from database",
+                "description": "Get list of users (in-memory)",
                 "produces": [
                     "application/json"
                 ],
@@ -175,7 +175,7 @@ const docTemplate = `{
         },
         "/users/{id}": {
             "get": {
-                "description": "Get single user by UUID",
+                "description": "Get single user by UUID (in-memory)",
                 "produces": [
                     "application/json"
                 ],
@@ -273,9 +273,6 @@ const docTemplate = `{
                 "phone": {
                     "type": "string"
                 },
-                "picture": {
-                    "type": "string"
-                },
                 "role_id": {
                     "type": "integer"
                 }
@@ -287,7 +284,7 @@ const docTemplate = `{
 // SwaggerInfo holds exported Swagger Info so clients can modify it
 var SwaggerInfo = &swag.Spec{
 	Version:          "1.0.0",
-	Host:             "localhost:8888",
+	Host:             "localhost:8080",
 	BasePath:         "/",
 	Schemes:          []string{},
 	Title:            "backend app",
