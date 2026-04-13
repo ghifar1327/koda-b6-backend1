@@ -3,21 +3,14 @@ package handlers
 import (
 	"backend/models"
 	"backend/utils"
-	"context"
-	"fmt"
-	"os"
 	"sync"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgtype"
 )
 
 var Users []models.User
-
-// var currentID int
 var mu sync.Mutex
 
 type Response struct {
@@ -26,61 +19,21 @@ type Response struct {
 	Results any    `json:"results"`
 }
 
-func textToPtr(t pgtype.Text) *string {
-	if t.Valid {
-		return &t.String
-	}
-	return nil
-}
-
-// =============================================================================================================== GET ALL USERS
-
-
-// GetUsers godoc
+// =============================== GET ALL USERS
 // @Summary Get all users
-// @Description Get list of users from database
+// @Description Get list of users (in-memory)
 // @Tags users
 // @Produce json
 // @Success 200 {object} Response
 // @Router /users [get]
 func GetUsers(ctx *gin.Context) {
-
-	dbURL := os.Getenv("DATABASE_URL")
-	fmt.Println("DATABASE_URL:", dbURL)
-
-	conn, err := pgx.Connect(context.Background(), dbURL)
-	if err != nil {
-		fmt.Println("CONNECT ERROR:", err)
-		ctx.JSON(500, Response{false, "Failed to connect database", nil})
-		return
-	}
-	defer conn.Close(context.Background())
-
-	rows, err := conn.Query(context.Background(),
-		`SELECT id, full_name, picture, email,password ,role_id ,phone, address, created_at, updated_at FROM users`)
-	if err != nil {
-		fmt.Println("QUERY ERROR:", err)
-		ctx.JSON(500, Response{false, "Failed to query users", nil})
-		return
-	}
-	defer rows.Close()
-
-	users, err := pgx.CollectRows(rows, pgx.RowToStructByName[models.User])
-	if err != nil {
-		fmt.Println("COLLECT ERROR:", err)
-		ctx.JSON(500, Response{false, "Failed to collect users", nil})
-		return
-	}
-
-	ctx.JSON(200, Response{true, "List of users", users})
+	ctx.JSON(200, Response{true, "List of users", Users})
 }
 
-// ============================================================================================================== REGISTER
-
-// Register godoc
+// =============================== REGISTER
 // @Summary Register new user
-// @Description Create new user account
-// @Tags users
+// @Description Create new user (in-memory)
+// @Tags auth
 // @Accept json
 // @Produce json
 // @Param input body models.RegisterInput true "Register Data"
@@ -90,7 +43,7 @@ func Register(ctx *gin.Context) {
 	var input models.RegisterInput
 
 	if err := ctx.ShouldBindJSON(&input); err != nil {
-		ctx.JSON(400, Response{false, "Invalid email or password", nil})
+		ctx.JSON(400, Response{false, "Invalid request", nil})
 		return
 	}
 
@@ -106,11 +59,9 @@ func Register(ctx *gin.Context) {
 
 	hash, err := utils.HashPassword(input.Password)
 	if err != nil {
-		ctx.JSON(400, Response{false, "Failed to hash password", nil})
+		ctx.JSON(500, Response{false, "Failed to hash password", nil})
 		return
 	}
-
-	// currentID++
 
 	newUser := models.User{
 		Id:        uuid.New(),
@@ -126,26 +77,19 @@ func Register(ctx *gin.Context) {
 
 	Users = append(Users, newUser)
 
-	ctx.JSON(201, Response{
-		true,
-		"Register successfully",
-		models.UserResponse{
-			Id:       newUser.Id,
-			Picture:  *textToPtr(newUser.Picture),
-			FullName: newUser.FullName,
-			Email:    newUser.Email,
-			RoleId:   newUser.RoleId,
-			Address:  newUser.Address,
-			Phone:    newUser.Phone,
-		},
-	})
+	ctx.JSON(201, Response{true, "Register successfully", models.UserResponse{
+		Id:       newUser.Id,
+		FullName: newUser.FullName,
+		Email:    newUser.Email,
+		RoleId:   newUser.RoleId,
+		Address:  newUser.Address,
+		Phone:    newUser.Phone,
+	}})
 }
 
-// ================================================================================================================ LOGIN
-
-// Login godoc
+// =============================== LOGIN
 // @Summary Login user
-// @Description Login with email and password
+// @Description Login using email and password
 // @Tags auth
 // @Accept json
 // @Produce json
@@ -165,27 +109,16 @@ func Login(ctx *gin.Context) {
 
 	for _, user := range Users {
 		if user.Email == input.Email {
-
-			match, err := utils.VerifyPassword(input.Password, user.Password)
-			if err != nil {
-				ctx.JSON(400, Response{false, "Failed to verify password", nil})
-				return
-			}
-
+			match, _ := utils.VerifyPassword(input.Password, user.Password)
 			if match {
-				ctx.JSON(200, Response{
-					true,
-					"Login successfully",
-					models.UserResponse{
-						Id:       user.Id,
-						Picture:  *textToPtr(user.Picture),
-						FullName: user.FullName,
-						Email:    user.Email,
-						RoleId:   user.RoleId,
-						Address:  user.Address,
-						Phone:    user.Phone,
-					},
-				})
+				ctx.JSON(200, Response{true, "Login successfully", models.UserResponse{
+					Id:       user.Id,
+					FullName: user.FullName,
+					Email:    user.Email,
+					RoleId:   user.RoleId,
+					Address:  user.Address,
+					Phone:    user.Phone,
+				}})
 				return
 			}
 		}
@@ -194,63 +127,34 @@ func Login(ctx *gin.Context) {
 	ctx.JSON(401, Response{false, "Email or password incorrect", nil})
 }
 
-// ======================================================================================================= GET USER BY ID
-
-
-// GetUserByID godoc
+// =============================== GET USER BY ID
 // @Summary Get user by ID
-// @Description Get single user by UUID
+// @Description Get single user by UUID (in-memory)
 // @Tags users
 // @Produce json
 // @Param id path string true "User ID"
 // @Success 200 {object} Response
 // @Router /users/{id} [get]
 func GetUserByID(ctx *gin.Context) {
-
-	dbURL := os.Getenv("DATABASE_URL")
-	conn, err := pgx.Connect(context.Background(), dbURL)
+	id, err := uuid.Parse(ctx.Param("id"))
 	if err != nil {
-		ctx.JSON(500, Response{false, "DB connection error", nil})
-		return
-	}
-	defer conn.Close(context.Background())
-
-	idParam := ctx.Param("id")
-	id, err := uuid.Parse(idParam)
-	if err != nil {
-		ctx.JSON(400, Response{false, "Invalid UUID", nil})
+		ctx.JSON(400, Response{false, "Invalid ID", nil})
 		return
 	}
 
-	row := conn.QueryRow(context.Background(),
-		`SELECT id, full_name, picture, email, role_id, phone, address, created_at, updated_at
-		 FROM users WHERE id=$1`, id)
-
-	var user models.User
-	err = row.Scan(
-		&user.Id,
-		&user.FullName,
-		&user.Picture,
-		&user.Email,
-		&user.RoleId,
-		&user.Phone,
-		&user.Address,
-		&user.CreatedAt,
-		&user.UpdatedAt,
-	)
-
-	if err != nil {
-		ctx.JSON(404, Response{false, "User not found", nil})
-		return
+	for _, user := range Users {
+		if user.Id == id {
+			ctx.JSON(200, Response{true, "User found", user})
+			return
+		}
 	}
 
-	ctx.JSON(200, Response{true, "User found", user})
+	ctx.JSON(404, Response{false, "User not found", nil})
 }
 
-// ============================================================================================================= UPDATE USER
-// UpdateUser godoc
+// =============================== UPDATE USER
 // @Summary Update user
-// @Description Update user by UUID
+// @Description Update user by UUID (in-memory)
 // @Tags users
 // @Accept json
 // @Produce json
@@ -259,9 +163,8 @@ func GetUserByID(ctx *gin.Context) {
 // @Success 200 {object} Response
 // @Router /updateuser/{id} [patch]
 func UpdateUser(ctx *gin.Context) {
-
-	defer mu.Unlock()
 	mu.Lock()
+	defer mu.Unlock()
 
 	id, err := uuid.Parse(ctx.Param("id"))
 	if err != nil {
@@ -289,19 +192,8 @@ func UpdateUser(ctx *gin.Context) {
 			}
 
 			if input.Password != nil {
-				hash, err := utils.HashPassword(*input.Password)
-				if err != nil {
-					ctx.JSON(500, Response{false, "Failed to hash password", nil})
-					return
-				}
+				hash, _ := utils.HashPassword(*input.Password)
 				Users[i].Password = hash
-			}
-
-			if input.Picture != nil {
-				Users[i].Picture = pgtype.Text{
-					String: *input.Picture,
-					Valid:  true,
-				}
 			}
 
 			if input.FullName != nil {
@@ -322,19 +214,14 @@ func UpdateUser(ctx *gin.Context) {
 
 			Users[i].UpdatedAt = time.Now()
 
-			ctx.JSON(200, Response{
-				true,
-				"User updated successfully",
-				models.UserResponse{
-					Id:       Users[i].Id,
-					Picture:  *textToPtr(Users[i].Picture),
-					FullName: Users[i].FullName,
-					Email:    Users[i].Email,
-					RoleId:   Users[i].RoleId,
-					Address:  Users[i].Address,
-					Phone:    Users[i].Phone,
-				},
-			})
+			ctx.JSON(200, Response{true, "User updated successfully", models.UserResponse{
+				Id:       Users[i].Id,
+				FullName: Users[i].FullName,
+				Email:    Users[i].Email,
+				RoleId:   Users[i].RoleId,
+				Address:  Users[i].Address,
+				Phone:    Users[i].Phone,
+			}})
 			return
 		}
 	}
@@ -342,42 +229,31 @@ func UpdateUser(ctx *gin.Context) {
 	ctx.JSON(404, Response{false, "User not found", nil})
 }
 
-// ======================================================================================================= DELETE USER
-
-// DeleteUser godoc
+// =============================== DELETE USER
 // @Summary Delete user
-// @Description Delete user by UUID
+// @Description Delete user by UUID (in-memory)
 // @Tags users
 // @Produce json
 // @Param id path string true "User ID"
 // @Success 200 {object} Response
 // @Router /deleteuser/{id} [delete]
 func DeleteUser(ctx *gin.Context) {
-
-	defer mu.Unlock()
 	mu.Lock()
+	defer mu.Unlock()
+
 	id, err := uuid.Parse(ctx.Param("id"))
 	if err != nil {
 		ctx.JSON(400, Response{false, "Invalid ID", nil})
 		return
 	}
 
-	var newData []models.User
-	found := false
-
-	for _, user := range Users {
+	for i, user := range Users {
 		if user.Id == id {
-			found = true
-			continue
+			Users = append(Users[:i], Users[i+1:]...)
+			ctx.JSON(200, Response{true, "User deleted successfully", nil})
+			return
 		}
-		newData = append(newData, user)
 	}
 
-	if !found {
-		ctx.JSON(404, Response{false, "User not found", nil})
-		return
-	}
-
-	Users = newData
-	ctx.JSON(200, Response{true, "User deleted successfully", nil})
+	ctx.JSON(404, Response{false, "User not found", nil})
 }
