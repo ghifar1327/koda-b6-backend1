@@ -4,20 +4,18 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgtype"
 )
 
 type User struct {
-	Id        uuid.UUID   `json:"id"`
-	Picture   pgtype.Text `json:"picture"`
-	FullName  string      `json:"full_name"`
-	Email     string      `json:"email"`
-	Password  string      `json:"password"`
-	Address   string      `json:"address"`
-	Phone     string      `json:"phone"`
-	RoleId    int         `json:"role_id"`
-	CreatedAt time.Time   `json:"created_at"`
-	UpdatedAt time.Time   `json:"updated_at"`
+	Id        uuid.UUID `json:"id"`
+	FullName  string    `json:"full_name"`
+	Email     string    `json:"email"`
+	Password  string    `json:"password"`
+	Address   string    `json:"address"`
+	Phone     string    `json:"phone"`
+	RoleId    int       `json:"role_id"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
 }
 
 // ========================================================================= REQUEST
@@ -37,7 +35,6 @@ type LoginInput struct {
 
 type UpdateInput struct {
 	Email    *string `json:"email"`
-	Picture  *string `json:"picture"`
 	FullName *string `json:"full_name"`
 	Password *string `json:"password"`
 	Address  *string `json:"address"`
@@ -51,7 +48,6 @@ type UpdateInput struct {
 
 type UserResponse struct {
 	Id       uuid.UUID `json:"id"`
-	Picture  string    `json:"picture"`
 	FullName string    `json:"full_name"`
 	Email    string    `json:"email"`
 	RoleId   int       `json:"role_id"`
